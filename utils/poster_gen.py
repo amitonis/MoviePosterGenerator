@@ -1,8 +1,8 @@
 # utils/poster_gen.py
-import torch
-from diffusers import StableDiffusionPipeline
+import torch # type: ignore
+from diffusers import StableDiffusionPipeline # type: ignore
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont # type: ignore
 import os
 import uuid
 

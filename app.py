@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file # type: ignore
 from utils.poster_gen import generate_poster
 import os
 
