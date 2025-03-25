@@ -1,13 +1,16 @@
-# utils/poster_gen.py
-import torch # type: ignore
-from diffusers import StableDiffusionPipeline # type: ignore
+import torch  # type: ignore
+from diffusers import StableDiffusionPipeline  # type: ignore
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-from PIL import Image, ImageDraw, ImageFont # type: ignore
+from PIL import Image, ImageDraw, ImageFont  # type: ignore
 import os
 import uuid
+import textwrap
 
 # Load the models once
-pipe = StableDiffusionPipeline.from_pretrained("C:/Users/amitm/.cache/huggingface/hub/models--CompVis--stable-diffusion-v1-4/snapshots/133a221b8aa7292a167afc5127cb63fb5005638b", torch_dtype=torch.float16)
+pipe = StableDiffusionPipeline.from_pretrained(
+    "C:/Users/amitm/.cache/huggingface/hub/models--ogkalu--Comic-Diffusion/snapshots/ff684f581ab24e094e2055d9422e9ee076d139a8",
+    torch_dtype=torch.float16
+)
 pipe.to("cuda")
 pipe.enable_attention_slicing()
 
@@ -25,7 +28,7 @@ def generate_title_and_tagline(description):
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True)
     outputs = caption_model.generate(**inputs, max_new_tokens=40)
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
+
     if ":" in response:
         title, tagline = response.split(":", 1)
     elif "-" in response:
@@ -36,28 +39,44 @@ def generate_title_and_tagline(description):
     return title.strip(), tagline.strip()
 
 def generate_image(description):
-    image = pipe(description).images[0]
+    # Generate higher-resolution poster (portrait format)
+    image = pipe(description, height=896, width=640).images[0]
     return image
 
 def overlay_text(image, title, tagline):
     draw = ImageDraw.Draw(image)
     width, height = image.size
 
-    title_font = ImageFont.truetype(FONT_PATH_TITLE, size=60)
-    tagline_font = ImageFont.truetype(FONT_PATH_TAGLINE, size=32)
+    max_title_font_size = 60
+    max_tagline_font_size = 32
 
-    title_bbox = draw.textbbox((0, 0), title, font=title_font)
-    tagline_bbox = draw.textbbox((0, 0), tagline, font=tagline_font)
+    # Utility: wrap and resize text to fit image
+    def draw_wrapped(draw, text, font_path, max_font_size, max_width, y, fill="white", align="center"):
+        if not text.strip():  # ✅ Skip empty text
+            return
 
-    title_w = title_bbox[2] - title_bbox[0]
-    title_h = title_bbox[3] - title_bbox[1]
+        for font_size in range(max_font_size, 10, -2):
+            font = ImageFont.truetype(font_path, font_size)
+            lines = textwrap.wrap(text, width=25)
+            if lines:
+                max_line_width = max([(font.getbbox(line)[2] - font.getbbox(line)[0]) for line in lines])
+                if max_line_width <= max_width:
+                    break
 
-    tagline_w = tagline_bbox[2] - tagline_bbox[0]
-    tagline_h = tagline_bbox[3] - tagline_bbox[1]
+        total_height = sum([(font.getbbox(line)[3] - font.getbbox(line)[1]) for line in lines]) + len(lines) * 5
+        y_start = y
 
+        for line in lines:
+            line_width = font.getbbox(line)[2] - font.getbbox(line)[0]
+            x = (image.width - line_width) / 2
+            draw.text((x, y_start), line, font=font, fill=fill)
+            y_start += font.getbbox(line)[3] - font.getbbox(line)[1] + 5
 
-    draw.text(((width - title_w) / 2, 40), title, font=title_font, fill="white")
-    draw.text(((width - tagline_w) / 2, height - tagline_h - 40), tagline, font=tagline_font, fill="white")
+    # Draw title at top
+    draw_wrapped(draw, title, FONT_PATH_TITLE, max_title_font_size, width * 0.9, y=40)
+
+    # Draw tagline at bottom
+    draw_wrapped(draw, tagline, FONT_PATH_TAGLINE, max_tagline_font_size, width * 0.9, y=height - 150)
 
     return image
 
