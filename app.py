@@ -1,11 +1,9 @@
-# app.py
-from flask import Flask, render_template, request, send_file # type: ignore
+from flask import Flask, render_template, request, send_file 
 from utils.poster_gen import generate_poster
 import os
 
 app = Flask(__name__)
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching during development
-
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
